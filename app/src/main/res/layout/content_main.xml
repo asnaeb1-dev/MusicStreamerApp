@@ -72,6 +72,17 @@
                 app:layout_constraintTop_toBottomOf="@+id/audioNameSmall"
                 app:layout_constraintVertical_bias="0.0" />
 
+            <ImageView
+                android:id="@+id/smallPlayPause"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_play_arrow_white_24dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="@+id/barVisualizerSmall"
+                app:layout_constraintHorizontal_bias="0.897"
+                app:layout_constraintStart_toEndOf="@+id/audioNameSmall"
+                app:layout_constraintTop_toTopOf="parent" />
+
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -103,7 +114,7 @@
             android:layout_height="match_parent">
 
             <TextView
-                android:id="@+id/trackName"
+                android:id="@+id/trackNameLarge"
                 android:layout_marginTop="20dp"
                 android:layout_marginStart="20dp"
                 android:layout_marginEnd="20dp"
@@ -114,7 +125,7 @@
                 android:textSize="20sp"/>
 
             <TextView
-                android:id="@+id/trackAlbum"
+                android:id="@+id/trackArtistLarge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Audio name"

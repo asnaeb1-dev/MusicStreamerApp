@@ -1,20 +1,34 @@
 package com.example.musicstreamer;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Menu;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
+import android.widget.TextView;
+import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
+import com.example.musicstreamer.POJO.GetAudio;
 import com.example.musicstreamer.POJO.Model1;
 import com.example.musicstreamer.POJO.ModelLogout;
 import com.example.musicstreamer.POJO.ModelUser;
+import com.example.musicstreamer.RouteHandlers.AudioInterface;
 import com.example.musicstreamer.RouteHandlers.UserInterface;
+import com.example.musicstreamer.Utility.Audio;
+import com.example.musicstreamer.Utility.Audio_Service;
 import com.example.musicstreamer.Utility.MainUser;
+import com.example.musicstreamer.Utility.SongListAdapter;
+import com.gauravk.audiovisualizer.visualizer.BarVisualizer;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
@@ -31,8 +45,14 @@ import androidx.navigation.ui.NavigationUI;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.slidingpanelayout.widget.SlidingPaneLayout;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import de.hdodenhof.circleimageview.CircleImageView;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -53,8 +73,27 @@ public class MainActivity extends AppCompatActivity {
 
     private String email, username;
     private String[] genresLiked;
+    private String _id;
 
     private Toolbar toolbar;
+    private ArrayList<Audio> audioList;
+
+    private RecyclerView recyclerView;
+    private Audio_Service audio_service;
+
+    //panel UI-----------------------------------------------------------
+    private FloatingActionButton playPauseButton, playNext, playPrevious;
+    private ImageView loopButton, shareButton, shuffleButton;
+    private SeekBar audioSeekBar;
+    private TextView audioNameLarge, artistNameLarge, smallTrackName, smallTrackArtist;
+    private ImageView audioPoster, playPauseSmall;
+    private CircleImageView smallPoster;
+    private ProgressBar smallProgressBar;
+    private BarVisualizer barVisualizer;
+    //-------------------------------------------------------------------
+
+    private boolean isCalled = false;
+    private int songPosition, audioSessionID;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.pbMainact);
         NavigationView navigationView = findViewById(R.id.nav_view);
         drawerLayout = findViewById(R.id.drawer_layout);
+        recyclerView = findViewById(R.id.audioShowerRV);
 
         mAppBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.nav_home, R.id.nav_gallery, R.id.nav_slideshow)
@@ -82,7 +122,34 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
-        getUserProfile();
+        if(!isCalled){
+            getUserProfile();
+            getAllAudios();
+            isCalled = true;
+        }
+        registerReceiver(songChangedBroadCastReceiver, new IntentFilter(Config.TRACK_CHANGE_ACTION));
+
+    }
+
+    private BroadcastReceiver songChangedBroadCastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            songPosition = intent.getIntExtra("position", 0);
+            audioSessionID = intent.getIntExtra("sessionid", 0);
+            activateAllUI();
+        }
+    };
+
+    private void activateAllUI() {
+        engagePanelUI();
+        Audio song = audioList.get(songPosition);
+        Glide.with(this).load(song.getImageURL()).into(audioPoster);
+        Glide.with(this).load(song.getImageURL()).into(smallPoster);
+        audioNameLarge.setText(song.getTitle());
+        artistNameLarge.setText(song.getArtistName());
+        smallTrackName.setText(song.getTitle());
+        smallTrackArtist.setText(song.getArtistName());
+        barVisualizer.setAudioSessionId(audioSessionID);
     }
 
     private void slidingFunction(){
@@ -114,6 +181,59 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void engagePanelUI(){
+        playPauseButton = findViewById(R.id.playPauseLarge);//
+        playNext = findViewById(R.id.playNext);//
+        playPrevious = findViewById(R.id.previousTrack);//
+        audioSeekBar = findViewById(R.id.seekBar);
+        shuffleButton = findViewById(R.id.shuffle);
+        loopButton = findViewById(R.id.repeat);//
+        shareButton = findViewById(R.id.share);
+        audioNameLarge = findViewById(R.id.trackNameLarge);
+        artistNameLarge = findViewById(R.id.trackArtistLarge);
+        audioPoster = findViewById(R.id.audioPoster);//
+        smallPoster = findViewById(R.id.circleImageView);
+        smallTrackName = findViewById(R.id.audioNameSmall);
+        smallTrackArtist = findViewById(R.id.smallAudioAlbum);
+        barVisualizer = findViewById(R.id.barVisualizerSmall);
+        playPauseSmall = findViewById(R.id.smallPlayPause);//
+
+        playPauseButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playPauseAudio();
+            }
+        });
+
+        playPauseSmall.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playPauseAudio();
+            }
+        });
+
+        playNext.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playNext();
+            }
+        });
+
+        playPrevious.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playPrevious();
+            }
+        });
+
+        loopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.loopSong();
+            }
+        });
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -140,7 +260,12 @@ public class MainActivity extends AppCompatActivity {
                 return true;
 
             case R.id.action_profile:
-                startActivity(new Intent(getApplicationContext(), ProfileActivity.class));
+                if(_id!=null){
+                    Intent intent = new Intent(getApplicationContext(), ProfileActivity.class);
+                    intent.putExtra("_id_", _id);
+                    startActivity(intent);
+                    finish();
+                }
         }
         return super.onOptionsItemSelected(item);
     }
@@ -183,7 +308,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getUserProfile(){
-
+        progressBar.setVisibility(View.VISIBLE);
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(Config.BASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
@@ -195,9 +320,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ModelUser> call, Response<ModelUser> response) {
                 if(response.isSuccessful()){
-                   toolbar.setTitle("Hi!, "+username);
                    assert response.body() != null;
-                   if(response.body().getGenresLiked().size()>0){
+                    _id = response.body().getId();
+                    toolbar.setTitle("Hi!, "+response.body().getUsername());
+                    if(response.body().getGenresLiked().size()>0){
                        for(int i = 0;i<response.body().getGenresLiked().size();i++){
                            genresLiked[i] = response.body().getGenresLiked().get(i).getGenre();
                        }
@@ -214,6 +340,42 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<ModelUser> call, Throwable t) {
                 Log.e("ERROR", t.getMessage().toString());
+            }
+        });
+
+    }
+
+    private void getAllAudios(){
+        audioList = new ArrayList<>();
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(Config.BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        AudioInterface ai = retrofit.create(AudioInterface.class);
+        Call<List<GetAudio>> call = ai.getAllAudio(getSharedPreferences("PREFS", MODE_PRIVATE).getString("token", null));
+        call.enqueue(new Callback<List<GetAudio>>() {
+            @Override
+            public void onResponse(Call<List<GetAudio>> call, Response<List<GetAudio>> response) {
+                if (response.isSuccessful()) {
+                    assert response.body() != null;
+                    List<GetAudio> list = response.body();
+                    for (GetAudio item : list) {
+                        audioList.add(new Audio(item.getTitle(), item.getAlbum(), item.getArtist(), item.getImages(), item.getDescription(), item.getUrl(), item.getUploadedBy()));
+                        Log.i("ITEM", item.getTitle());
+                    }
+                    recyclerView.setAdapter(new SongListAdapter(MainActivity.this, audioList));
+                    recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
+                    engagePanelUI();
+                }
+                progressBar.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void onFailure(Call<List<GetAudio>> call, Throwable t) {
+                Log.e("ERROR", t.getMessage().toString());
+                progressBar.setVisibility(View.GONE);
+
             }
         });
 
