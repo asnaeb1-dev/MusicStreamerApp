@@ -6,6 +6,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
@@ -18,6 +20,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.example.musicstreamer.POJO.GetAudio;
 import com.example.musicstreamer.POJO.Model1;
 import com.example.musicstreamer.POJO.ModelLogout;
@@ -36,6 +40,7 @@ import com.google.android.material.navigation.NavigationView;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.navigation.NavController;
@@ -53,6 +58,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import de.hdodenhof.circleimageview.CircleImageView;
+import jp.wasabeef.blurry.Blurry;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -81,6 +87,9 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private Audio_Service audio_service;
 
+    private Bitmap bm = null;
+
+
     //panel UI-----------------------------------------------------------
     private FloatingActionButton playPauseButton, playNext, playPrevious;
     private ImageView loopButton, shareButton, shuffleButton;
@@ -90,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
     private CircleImageView smallPoster;
     private ProgressBar smallProgressBar;
     private BarVisualizer barVisualizer;
+    private ImageView iv;
     //-------------------------------------------------------------------
 
     private boolean isCalled = false;
@@ -142,14 +152,67 @@ public class MainActivity extends AppCompatActivity {
 
     private void activateAllUI() {
         engagePanelUI();
+        audio_service = new Audio_Service();
         Audio song = audioList.get(songPosition);
-        Glide.with(this).load(song.getImageURL()).into(audioPoster);
-        Glide.with(this).load(song.getImageURL()).into(smallPoster);
+
+        Glide.with(this)
+                .asBitmap()
+                .load(song.getImageURL())
+                .into(new CustomTarget<Bitmap>() {
+                    @Override
+                    public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                        Blurry.with(MainActivity.this).from(resource).into(iv);
+                        audioPoster.setImageBitmap(resource);
+                        smallPoster.setImageBitmap(resource);
+                    }
+
+                    @Override
+                    public void onLoadCleared(@Nullable Drawable placeholder) {
+                    }
+                });
+
         audioNameLarge.setText(song.getTitle());
         artistNameLarge.setText(song.getArtistName());
         smallTrackName.setText(song.getTitle());
         smallTrackArtist.setText(song.getArtistName());
         barVisualizer.setAudioSessionId(audioSessionID);
+
+        playPauseButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playPauseAudio();
+            }
+        });
+
+        playPauseSmall.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playPauseAudio();
+            }
+        });
+
+        playNext.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playNext();
+            }
+        });
+
+        playPrevious.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.playPrevious();
+            }
+        });
+
+        loopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                audio_service.loopSong();
+            }
+        });
+
+
     }
 
     private void slidingFunction(){
@@ -197,41 +260,7 @@ public class MainActivity extends AppCompatActivity {
         smallTrackArtist = findViewById(R.id.smallAudioAlbum);
         barVisualizer = findViewById(R.id.barVisualizerSmall);
         playPauseSmall = findViewById(R.id.smallPlayPause);//
-
-        playPauseButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                audio_service.playPauseAudio();
-            }
-        });
-
-        playPauseSmall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                audio_service.playPauseAudio();
-            }
-        });
-
-        playNext.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                audio_service.playNext();
-            }
-        });
-
-        playPrevious.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                audio_service.playPrevious();
-            }
-        });
-
-        loopButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                audio_service.loopSong();
-            }
-        });
+        iv = findViewById(R.id.blurryBackground);
     }
 
     @Override
@@ -264,7 +293,6 @@ public class MainActivity extends AppCompatActivity {
                     Intent intent = new Intent(getApplicationContext(), ProfileActivity.class);
                     intent.putExtra("_id_", _id);
                     startActivity(intent);
-                    finish();
                 }
         }
         return super.onOptionsItemSelected(item);
@@ -361,8 +389,15 @@ public class MainActivity extends AppCompatActivity {
                     assert response.body() != null;
                     List<GetAudio> list = response.body();
                     for (GetAudio item : list) {
-                        audioList.add(new Audio(item.getTitle(), item.getAlbum(), item.getArtist(), item.getImages(), item.getDescription(), item.getUrl(), item.getUploadedBy()));
-                        Log.i("ITEM", item.getTitle());
+                        Audio audio = new Audio();
+                        audio.setTitle(item.getTitle());
+                        audio.setAlbumName(item.getAlbum());
+                        audio.setArtistName(item.getArtist());
+                        audio.setImageURL(item.getImages());
+                        audio.setSummary(item.getDescription());
+                        audio.setUrl(item.getUrl());
+                        audio.setUploaded_by(item.getUploadedBy());
+                        audioList.add(audio);
                     }
                     recyclerView.setAdapter(new SongListAdapter(MainActivity.this, audioList));
                     recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));

@@ -48,7 +48,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class ProfileActivity extends AppCompatActivity {
 
     private EditText songNameET, songArtistET;
-    private Audio prepareAudio;
+    private Audio audio;
 
     private Button findButton, uploadButton, pushButton;
     private ProgressBar progressBar, roundPB;
@@ -125,6 +125,7 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void findAudio(String songName, String songArtist){
+        progressBar.setVisibility(View.VISIBLE);
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(Config.BASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
@@ -138,17 +139,58 @@ public class ProfileActivity extends AppCompatActivity {
                 if(response.isSuccessful()){
                     assert response.body() != null;
                     SearchAudioModel model = response.body();
-                    if(model.getTrack().getAlbum().getTitle()!= null ||model.getTrack().getArtist().getName()!=null || model.getTrack().getAlbum().getImage().get(2).getText()!=null || model.getTrack().getWiki().getSummary() != null){
-                        prepareAudio = new Audio(model.getTrack().getName(), model.getTrack().getAlbum().getTitle(), model.getTrack().getArtist().getName(), model.getTrack().getAlbum().getImage().get(2).getText(), model.getTrack().getWiki().getSummary());
-                    }else if(model.getTrack().getAlbum().getTitle() == null){
-                        //TODO
+                    audio = new Audio();
+                    //model.getTrack().getAlbum().getTitle()!= null ||model.getTrack().getArtist().getName()!=null || model.getTrack().getAlbum().getImage().get(2).getText()!=null || model.getTrack().getWiki().getSummary() != null
+                    if(model.getTrack().getName()!=null){
+                        audio.setTitle(model.getTrack().getName());
+                    }else{
+                        audio.setTitle("msc_title");
+                    }
+
+                    if(model.getTrack().getAlbum()!=null){
+                        if(model.getTrack().getAlbum().getTitle() != null) {
+                            audio.setAlbumName(model.getTrack().getAlbum().getTitle());
+                        }else {
+                            audio.setAlbumName("msc_album");
+                        }
+
+                        if(model.getTrack().getAlbum().getImage().get(2).getText()!=null){
+                            audio.setImageURL(model.getTrack().getAlbum().getImage().get(2).getText());
+                        }else{
+                            audio.setImageURL("");
+                        }
+                    }else{
+                        audio.setAlbumName("msc_album");
+                        audio.setImageURL("");
+                    }
+
+                    if(model.getTrack().getArtist()!=null){
+                        if(model.getTrack().getArtist().getName()!=null){
+                            audio.setArtistName(model.getTrack().getArtist().getName());
+                        }else{
+                            audio.setArtistName("msc_artist");
+                        }
+                    }else{
+                        audio.setArtistName("msc_artist");
+                    }
+
+                    if(model.getTrack().getWiki()!=null){
+                        if(model.getTrack().getWiki().getSummary()!= null){
+                            audio.setSummary(model.getTrack().getWiki().getSummary());
+                        }else{
+                            audio.setSummary("summary");
+                        }
+                    }else{
+                        audio.setSummary("summary");
                     }
                     Snackbar.make(findViewById(R.id.parentLayoutUpload), "Found!", Snackbar.LENGTH_LONG).show();
+                    progressBar.setVisibility(View.GONE);
                 }
             }
 
             @Override
             public void onFailure(Call<SearchAudioModel> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
                 Snackbar.make(findViewById(R.id.parentLayoutUpload), "Sorry! Not found.", Snackbar.LENGTH_LONG).show();
                 Log.e("ERROR", t.getMessage().toString());
             }
@@ -169,10 +211,15 @@ public class ProfileActivity extends AppCompatActivity {
                         audioRef.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
                             @Override
                             public void onSuccess(Uri uri) {
-                                prepareAudio.setUrl(uri.toString());
-                                prepareAudio.setUploaded_by(_id);
-                                Log.i("INFORMATION", prepareAudio.getTitle() + " "+ prepareAudio.getAlbumName()+" "+prepareAudio.getArtistName()+" "+prepareAudio.getImageURL()+" " + prepareAudio.getUrl() +" "+ prepareAudio.getUploaded_by());
-                                pushButton.setEnabled(true);
+                                if(audio!=null){
+                                    audio.setUrl(uri.toString());
+                                    audio.setUploaded_by(_id);
+                                    Log.i("INFORMATION", audio.getTitle() + " "+ audio.getAlbumName()+" "+audio.getArtistName()+" "+audio.getImageURL()+" " + audio.getUrl() +" "+ audio.getUploaded_by());
+                                    pushButton.setEnabled(true);
+                                    Toast.makeText(ProfileActivity.this, "Successful upload complete. Press 'push' button to continue.", Toast.LENGTH_SHORT).show();
+                                }else{
+                                    Toast.makeText(ProfileActivity.this, "Can't upload!", Toast.LENGTH_SHORT).show();
+                                }
                             }
                         });
                     }
@@ -201,13 +248,13 @@ public class ProfileActivity extends AppCompatActivity {
                 .build();
 
         AudioInterface ai = retrofit.create(AudioInterface.class);
-        Call<UploadAudio> call = ai.pushAudio(new UploadAudio(prepareAudio.getTitle(),
-                prepareAudio.getArtistName(),
-                prepareAudio.getAlbumName(),
-                prepareAudio.getUrl(),
-                prepareAudio.getUploaded_by(),
-                prepareAudio.getImageURL(),
-                prepareAudio.getSummary()),
+        Call<UploadAudio> call = ai.pushAudio(new UploadAudio(audio.getTitle(),
+                        audio.getArtistName(),
+                        audio.getAlbumName(),
+                        audio.getUrl(),
+                        audio.getUploaded_by(),
+                        audio.getImageURL(),
+                        audio.getSummary()),
                 getSharedPreferences("PREFS", MODE_PRIVATE).getString("token", null));
         call.enqueue(new Callback<UploadAudio>() {
             @Override

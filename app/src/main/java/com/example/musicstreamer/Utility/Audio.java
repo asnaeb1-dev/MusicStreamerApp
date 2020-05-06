@@ -11,23 +11,24 @@ public class Audio {
     private String url;
     private String uploaded_by;
 
-
-    public Audio(String title, String albumName, String artistName, String imageURL, String summary) {
+    public void setTitle(String title) {
         this.title = title;
-        this.albumName = albumName;
-        this.artistName = artistName;
-        this.imageURL = imageURL;
-        this.summary = summary;
     }
 
-    public Audio(String title, String albumName, String artistName, String imageURL, String summary, String url, String uploaded_by) {
-        this.title = title;
+    public void setAlbumName(String albumName) {
         this.albumName = albumName;
+    }
+
+    public void setArtistName(String artistName) {
         this.artistName = artistName;
+    }
+
+    public void setImageURL(String imageURL) {
         this.imageURL = imageURL;
+    }
+
+    public void setSummary(String summary) {
         this.summary = summary;
-        this.url = url;
-        this.uploaded_by = uploaded_by;
     }
 
     public String getTitle() {

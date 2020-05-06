@@ -38,7 +38,6 @@ public class Audio_Service extends Service implements
     @Override
     public void onCreate() {
         super.onCreate();
-
         mediaPlayer = new MediaPlayer();
     }
 
@@ -50,8 +49,8 @@ public class Audio_Service extends Service implements
         return START_NOT_STICKY;
     }
 
+    //initialize media player
     private void initializeMediaPlayer() {
-
         mediaPlayer.reset();
         try{
             mediaPlayer.setDataSource(audioData.get(songPosition));
@@ -67,6 +66,7 @@ public class Audio_Service extends Service implements
         trackChanged();
     }
 
+    //loop audio
     public void loopSong(){
         if (mediaPlayer.isLooping()) {
             mediaPlayer.setLooping(false);
@@ -75,6 +75,7 @@ public class Audio_Service extends Service implements
         }
     }
 
+    //play or pause audio
     public void playPauseAudio(){
         if(mediaPlayer.isPlaying()){
             mediaPlayer.pause();
@@ -83,6 +84,7 @@ public class Audio_Service extends Service implements
         }
     }
 
+    //call when next audio is played
     public void playNext(){
         if(songPosition>audioData.size()-1){
             songPosition = 0;
@@ -92,6 +94,7 @@ public class Audio_Service extends Service implements
         initializeMediaPlayer();
     }
 
+    //call when play previous button is touched
     public void playPrevious(){
         if(songPosition<0){
             songPosition = 0;
@@ -101,6 +104,7 @@ public class Audio_Service extends Service implements
         initializeMediaPlayer();
     }
 
+    //call when audio track is changed
     private void trackChanged(){
         Intent intent = new Intent(Config.TRACK_CHANGE_ACTION);
         intent.putExtra("position", songPosition);
@@ -154,8 +158,7 @@ public class Audio_Service extends Service implements
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
         mp.reset();
-
-        return false;
+        return true;
     }
 
     @Override
